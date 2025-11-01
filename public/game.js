@@ -979,6 +979,18 @@ class MultiplayerShooterGame {
                     ? `<button class="kick-btn" onclick="game.kickPlayer('${player.id}')">踢出</button>` 
                     : '';
                 
+                // AI 隊伍選擇按鈕：只有房主可以改變 AI 隊伍
+                const aiTeamButtons = (isHost && player.isAI) 
+                    ? `
+                        <div class="ai-team-controls">
+                            <button class="ai-team-btn red ${player.team === 'red' ? 'active' : ''}" onclick="game.changeAiTeam('${player.id}', 'red')">🔴</button>
+                            <button class="ai-team-btn blue ${player.team === 'blue' ? 'active' : ''}" onclick="game.changeAiTeam('${player.id}', 'blue')">🔵</button>
+                            <button class="ai-team-btn green ${player.team === 'green' ? 'active' : ''}" onclick="game.changeAiTeam('${player.id}', 'green')">🟢</button>
+                            <button class="ai-team-btn yellow ${player.team === 'yellow' ? 'active' : ''}" onclick="game.changeAiTeam('${player.id}', 'yellow')">🟡</button>
+                        </div>
+                    ` 
+                    : '';
+                
                 playersHTML += `
                     <div class="player-item ${isCurrentPlayer ? 'current-player' : ''}">
                         <span class="player-name">
@@ -993,6 +1005,7 @@ class MultiplayerShooterGame {
                                     ${player.ready ? '✓ 準備' : '⏳ 等待'}
                                 </span>
                             </div>
+                            ${aiTeamButtons}
                             ${kickButton}
                         </div>
                     </div>
@@ -1014,6 +1027,13 @@ class MultiplayerShooterGame {
     kickPlayer(playerId) {
         if (confirm('確定要踢出這個玩家嗎？')) {
             this.socket.emit('kickPlayer', { playerId });
+        }
+    }
+    
+    // 改變 AI 隊伍
+    changeAiTeam(aiId, team) {
+        if (this.socket && this.roomId) {
+            this.socket.emit('changeAiTeam', { aiId, team });
         }
     }
     

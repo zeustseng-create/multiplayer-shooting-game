@@ -764,4 +764,61 @@ body {
     font-size: 0.7rem;
     font-weight: bold;
     margin-left: 5px;
+}/* AI 隊伍
+控制按鈕樣式 */
+.ai-team-controls {
+    display: flex;
+    gap: 4px;
+    margin: 5px 0;
+}
+
+.ai-team-btn {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 50%;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    opacity: 0.6;
+}
+
+.ai-team-btn:hover {
+    opacity: 0.8;
+    transform: scale(1.1);
+}
+
+.ai-team-btn.active {
+    opacity: 1;
+    border: 2px solid #fff;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+.ai-team-btn.red {
+    background: linear-gradient(45deg, #ff4757, #ff3838);
+}
+
+.ai-team-btn.blue {
+    background: linear-gradient(45deg, #3742fa, #2f3542);
+}
+
+.ai-team-btn.green {
+    background: linear-gradient(45deg, #2ed573, #1e90ff);
+}
+
+.ai-team-btn.yellow {
+    background: linear-gradient(45deg, #ffa502, #ff6348);
+}
+
+.player-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 5px;
+}
+
+.player-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }

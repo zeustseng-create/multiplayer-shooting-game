@@ -455,6 +455,52 @@ class GameServer {
         }
     }
     
+    // 改變 AI 隊伍
+    changeAiTeam(roomId, aiId, team) {
+        const room = this.rooms.get(roomId);
+        if (!room) return;
+        
+        const aiPlayer = room.players.get(aiId);
+        if (!aiPlayer || !aiPlayer.isAI) return;
+        
+        // 更新 AI 隊伍
+        aiPlayer.team = team;
+        
+        // 廣播房間更新
+        const roomData = {
+            id: room.id,
+            name: room.name,
+            maxPlayers: room.maxPlayers,
+            host: room.host,
+            players: Array.from(room.players.values()).map(p => ({
+                id: p.id,
+                name: p.name,
+                ready: p.ready,
+                team: p.team,
+                isAI: p.isAI
+            }))
+        };
+        
+        io.to(roomId).emit('roomUpdated', roomData);
+        
+        // 發送聊天消息通知
+        const teamNames = {
+            red: '🔴 紅隊',
+            blue: '🔵 藍隊',
+            green: '🟢 綠隊',
+            yellow: '🟡 黃隊'
+        };
+        
+        io.to(roomId).emit('chatMessage', {
+            playerName: '系統',
+            message: `🤖 ${aiPlayer.name} 已切換到 ${teamNames[team]}`,
+            timestamp: Date.now(),
+            isSystem: true
+        });
+        
+        console.log(`AI 玩家 ${aiPlayer.name} 在房間 ${roomId} 切換到隊伍 ${team}`);
+    }
+    
     // 開發者功能
     deleteAllRooms() {
         this.rooms.forEach((room, roomId) => {
@@ -759,6 +805,18 @@ io.on('connection', (socket) => {
             if (room && room.host === playerInfo.playerId) {
                 // 只有房主可以踢人
                 gameServer.kickPlayer(playerInfo.roomId, data.playerId, socket.id);
+            }
+        }
+    });
+    
+    // 改變 AI 隊伍
+    socket.on('changeAiTeam', (data) => {
+        const playerInfo = gameServer.players.get(socket.id);
+        if (playerInfo) {
+            const room = gameServer.rooms.get(playerInfo.roomId);
+            if (room && room.host === playerInfo.playerId) {
+                // 只有房主可以改變 AI 隊伍
+                gameServer.changeAiTeam(playerInfo.roomId, data.aiId, data.team);
             }
         }
     });
