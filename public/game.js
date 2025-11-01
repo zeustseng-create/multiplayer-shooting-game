@@ -1172,6 +1172,279 @@ class MultiplayerShooterGame {
         console.log('連接狀態:', status);
     }
     
+    // 初始化遊戲
+    initGame() {
+        this.setupCanvas();
+        this.startGameLoop();
+        console.log('遊戲已初始化');
+    }
+    
+    // 設置畫布
+    setupCanvas() {
+        this.canvas = document.getElementById('gameCanvas');
+        if (!this.canvas) {
+            console.error('找不到遊戲畫布');
+            return;
+        }
+        
+        this.ctx = this.canvas.getContext('2d');
+        
+        // 滑鼠事件
+        this.canvas.addEventListener('mousemove', (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            this.mouse.x = e.clientX - rect.left;
+            this.mouse.y = e.clientY - rect.top;
+        });
+        
+        this.canvas.addEventListener('mousedown', () => {
+            this.mouse.pressed = true;
+        });
+        
+        this.canvas.addEventListener('mouseup', () => {
+            this.mouse.pressed = false;
+        });
+    }
+    
+    // 開始遊戲循環
+    startGameLoop() {
+        this.gameLoop = setInterval(() => {
+            this.updateGame();
+            this.renderGame();
+        }, 1000 / 60); // 60 FPS
+    }
+    
+    // 更新遊戲邏輯
+    updateGame() {
+        if (this.gameState !== 'playing') return;
+        
+        // 處理玩家移動
+        this.handlePlayerMovement();
+        
+        // 處理射擊
+        if (this.mouse.pressed) {
+            this.handleShooting();
+        }
+    }
+    
+    // 處理玩家移動
+    handlePlayerMovement() {
+        const moveData = {
+            up: this.keys['w'] || this.keys['arrowup'],
+            down: this.keys['s'] || this.keys['arrowdown'],
+            left: this.keys['a'] || this.keys['arrowleft'],
+            right: this.keys['d'] || this.keys['arrowright']
+        };
+        
+        if (moveData.up || moveData.down || moveData.left || moveData.right) {
+            this.socket.emit('playerAction', {
+                type: 'move',
+                data: moveData
+            });
+        }
+        
+        // 更新玩家角度
+        if (this.player) {
+            const angle = Math.atan2(
+                this.mouse.y - this.player.y,
+                this.mouse.x - this.player.x
+            );
+            
+            this.socket.emit('playerAction', {
+                type: 'updateAngle',
+                data: { angle }
+            });
+        }
+    }
+    
+    // 處理射擊
+    handleShooting() {
+        const now = Date.now();
+        if (now - this.lastFireTime < this.gameConfig.fireRate) return;
+        
+        this.lastFireTime = now;
+        
+        if (this.player) {
+            const angle = Math.atan2(
+                this.mouse.y - this.player.y,
+                this.mouse.x - this.player.x
+            );
+            
+            this.socket.emit('playerAction', {
+                type: 'shoot',
+                data: { angle }
+            });
+        }
+    }
+    
+    // 渲染遊戲
+    renderGame() {
+        if (!this.ctx) return;
+        
+        // 清空畫布
+        this.ctx.fillStyle = '#2c3e50';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // 渲染障礙物
+        this.renderObstacles();
+        
+        // 渲染玩家
+        this.renderPlayers();
+        
+        // 渲染子彈
+        this.renderBullets();
+    }
+    
+    // 渲染障礙物
+    renderObstacles() {
+        this.ctx.fillStyle = '#34495e';
+        this.obstacles.forEach(obstacle => {
+            this.ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+        });
+    }
+    
+    // 渲染玩家
+    renderPlayers() {
+        // 渲染其他玩家
+        this.otherPlayers.forEach(player => {
+            this.renderPlayer(player);
+        });
+        
+        // 渲染自己
+        if (this.player) {
+            this.renderPlayer(this.player, true);
+        }
+    }
+    
+    // 渲染單個玩家
+    renderPlayer(player, isCurrentPlayer = false) {
+        this.ctx.save();
+        
+        // 玩家顏色
+        this.ctx.fillStyle = isCurrentPlayer ? '#3498db' : (player.color || '#e74c3c');
+        
+        // 繪製玩家
+        this.ctx.fillRect(player.x, player.y, 30, 30);
+        
+        // 繪製玩家名稱
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.font = '12px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(player.name, player.x + 15, player.y - 5);
+        
+        // 繪製生命值條
+        const healthWidth = 30 * (player.health / 100);
+        this.ctx.fillStyle = '#e74c3c';
+        this.ctx.fillRect(player.x, player.y - 10, 30, 4);
+        this.ctx.fillStyle = '#2ecc71';
+        this.ctx.fillRect(player.x, player.y - 10, healthWidth, 4);
+        
+        this.ctx.restore();
+    }
+    
+    // 渲染子彈
+    renderBullets() {
+        this.ctx.fillStyle = '#f39c12';
+        this.serverBullets.forEach(bullet => {
+            this.ctx.fillRect(bullet.x - 2, bullet.y - 2, 4, 4);
+        });
+    }
+    
+    // 從服務器更新遊戲狀態
+    updateGameFromServer(gameState) {
+        if (gameState.players) {
+            this.otherPlayers = [];
+            gameState.players.forEach(player => {
+                if (player.id === this.playerId) {
+                    this.player = player;
+                    this.gameData.health = player.health;
+                    this.gameData.kills = player.kills;
+                    this.gameData.deaths = player.deaths;
+                } else {
+                    this.otherPlayers.push(player);
+                }
+            });
+        }
+        
+        if (gameState.bullets) {
+            this.serverBullets = gameState.bullets;
+        }
+        
+        if (gameState.obstacles) {
+            this.obstacles = gameState.obstacles;
+        }
+        
+        // 更新 UI
+        this.updateGameUI();
+    }
+    
+    // 更新遊戲 UI
+    updateGameUI() {
+        const healthBar = document.getElementById('healthBar');
+        const killCount = document.getElementById('killCount');
+        const deathCount = document.getElementById('deathCount');
+        const gameTimer = document.getElementById('gameTimer');
+        
+        if (healthBar) {
+            healthBar.style.width = `${this.gameData.health}%`;
+        }
+        
+        if (killCount) {
+            killCount.textContent = this.gameData.kills;
+        }
+        
+        if (deathCount) {
+            deathCount.textContent = this.gameData.deaths;
+        }
+        
+        if (gameTimer) {
+            const elapsed = Math.floor((Date.now() - this.gameStartTime) / 1000);
+            const remaining = Math.max(0, this.gameConfig.gameTime - elapsed);
+            const minutes = Math.floor(remaining / 60);
+            const seconds = remaining % 60;
+            gameTimer.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+    }
+    
+    // 結束遊戲並顯示結果
+    endGameWithResults(rankings) {
+        this.gameState = 'gameOver';
+        
+        if (this.gameLoop) {
+            clearInterval(this.gameLoop);
+        }
+        
+        this.showScreen('gameOverScreen');
+        this.displayGameResults(rankings);
+    }
+    
+    // 顯示遊戲結果
+    displayGameResults(rankings) {
+        const finalResults = document.getElementById('finalResults');
+        if (!finalResults) return;
+        
+        let resultsHTML = '<h3>🏆 遊戲結果</h3>';
+        
+        rankings.forEach((player, index) => {
+            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🏅';
+            const kd = player.gameData.deaths > 0 
+                ? (player.gameData.kills / player.gameData.deaths).toFixed(2) 
+                : player.gameData.kills.toString();
+            
+            resultsHTML += `
+                <div class="result-item ${player.id === this.playerId ? 'current-player' : ''}">
+                    <span style="font-size: 1.2rem;">
+                        ${medal} ${index + 1}. ${player.name}${player.id === this.playerId ? ' (你)' : ''}
+                    </span>
+                    <span style="font-weight: bold;">
+                        ${player.gameData.kills}/${player.gameData.deaths} (${kd})
+                    </span>
+                </div>
+            `;
+        });
+        
+        finalResults.innerHTML = resultsHTML;
+    }
+    
     // 隊伍選擇功能
     selectTeam(team) {
         this.selectedTeam = team;
@@ -1276,6 +1549,47 @@ class MultiplayerShooterGame {
         this.gameState = 'spectating';
         this.showScreen('gameScreen');
         // 這裡可以添加觀戰模式的特殊 UI
+    }
+    
+    // 顯示房間列表
+    displayRoomList(rooms) {
+        const roomsContainer = document.getElementById('availableRooms');
+        if (!roomsContainer) return;
+        
+        if (rooms.length === 0) {
+            roomsContainer.innerHTML = '<div class="no-rooms">目前沒有可用房間</div>';
+            return;
+        }
+        
+        let roomsHTML = '';
+        rooms.forEach(room => {
+            roomsHTML += `
+                <div class="room-item" onclick="game.quickJoinRoom('${room.id}')">
+                    <div class="room-name">${room.name}</div>
+                    <div class="room-info">
+                        <span class="room-players">${room.players}/${room.maxPlayers} 人</span>
+                        <span class="room-id">ID: ${room.id}</span>
+                    </div>
+                </div>
+            `;
+        });
+        
+        roomsContainer.innerHTML = roomsHTML;
+    }
+    
+    // 快速加入房間
+    quickJoinRoom(roomId) {
+        const playerName = prompt('請輸入你的名稱：');
+        if (playerName) {
+            this.playerName = playerName;
+            this.playerId = this.generatePlayerId();
+            
+            this.socket.emit('joinRoom', {
+                roomId: roomId,
+                playerName: playerName,
+                playerId: this.playerId
+            });
+        }
     }
 }
 
