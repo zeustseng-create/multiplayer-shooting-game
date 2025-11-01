@@ -436,7 +436,10 @@ class MultiplayerShooterGame {
         
         document.getElementById('currentRoomId').textContent = this.roomId;
         document.getElementById('roomTitle').textContent = `房間: ${this.currentRoom.name}`;
-        document.getElementById('currentPlayerCount').textContent = this.currentRoom.players.length;
+        const playerCount = Array.isArray(this.currentRoom.players) 
+            ? this.currentRoom.players.length 
+            : this.currentRoom.players.size || 0;
+        document.getElementById('currentPlayerCount').textContent = playerCount;
         document.getElementById('maxPlayerCount').textContent = this.currentRoom.maxPlayers;
         
         // 更新玩家列表
@@ -967,7 +970,10 @@ class MultiplayerShooterGame {
         
         document.getElementById('roomTitle').textContent = `房間: ${this.currentRoom.name}`;
         document.getElementById('currentRoomId').textContent = this.currentRoom.id;
-        document.getElementById('currentPlayerCount').textContent = this.currentRoom.players.size || 0;
+        const playerCount = Array.isArray(this.currentRoom.players) 
+            ? this.currentRoom.players.length 
+            : this.currentRoom.players.size || 0;
+        document.getElementById('currentPlayerCount').textContent = playerCount;
         document.getElementById('maxPlayerCount').textContent = this.currentRoom.maxPlayers;
         
         // 檢查當前玩家是否為房主
@@ -1035,14 +1041,19 @@ class MultiplayerShooterGame {
         playersList.innerHTML = playersHTML || '<div class="no-players">沒有玩家</div>';
         
         // 更新開始遊戲按鈕狀態：只有房主可以開始遊戲，且所有玩家都準備好
-        const playersArray = Array.from(this.currentRoom.players.values());
+        const playersArray = Array.isArray(this.currentRoom.players) 
+            ? this.currentRoom.players 
+            : Array.from(this.currentRoom.players.values());
         const humanPlayers = playersArray.filter(p => !p.isAI); // 只檢查真人玩家的準備狀態
         const allHumansReady = humanPlayers.length > 0 && humanPlayers.every(p => p.ready);
-        const hasEnoughPlayers = this.currentRoom.players.size >= 2;
+        const totalPlayerCount = Array.isArray(this.currentRoom.players) 
+            ? this.currentRoom.players.length 
+            : this.currentRoom.players.size;
+        const hasEnoughPlayers = totalPlayerCount >= 2;
         
         console.log('開始遊戲檢查:', {
             isHost,
-            totalPlayers: this.currentRoom.players.size,
+            totalPlayers: totalPlayerCount,
             humanPlayers: humanPlayers.length,
             allHumansReady,
             hasEnoughPlayers,
