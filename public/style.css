@@ -970,4 +970,86 @@ body {
 .connection-status.connecting {
     background: #f39c12;
     color: white;
+}/*
+ 遊戲模式選擇樣式 */
+.form-group small {
+    display: block;
+    margin-top: 5px;
+    font-size: 0.8rem;
+    color: #bdc3c7;
+    font-style: italic;
+}
+
+.form-group input[type="number"] {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #34495e;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-group input[type="number"]:focus {
+    outline: none;
+    border-color: #3498db;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.form-group input[type="number"]::-webkit-outer-spin-button,
+.form-group input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.form-group input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+/* 房間信息樣式改進 */
+.room-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin: 20px 0;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    backdrop-filter: blur(10px);
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.info-item .label {
+    font-size: 0.9rem;
+    color: #bdc3c7;
+    margin-bottom: 5px;
+}
+
+.info-item span:not(.label) {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #ffffff;
+}
+
+#currentGameMode {
+    color: #f39c12;
+}
+
+#hitsToEliminateInfo span:not(.label) {
+    color: #e74c3c;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+    .room-info {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
 }

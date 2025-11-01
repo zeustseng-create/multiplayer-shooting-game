@@ -52,6 +52,14 @@ class MultiplayerShooterGame {
         this.setupCanvas();
         this.showScreen('mainMenu');
         this.setupWebSocket();
+        
+        // 初始化遊戲模式顯示
+        setTimeout(() => {
+            const gameModeSelect = document.getElementById('gameModeSelect');
+            if (gameModeSelect) {
+                this.handleGameModeChange(gameModeSelect.value);
+            }
+        }, 100);
     }
     
     setupEventListeners() {
@@ -85,6 +93,11 @@ class MultiplayerShooterGame {
         
         document.getElementById('backToMenuBtn').addEventListener('click', () => {
             this.showScreen('mainMenu');
+        });
+        
+        // 遊戲模式選擇（在創建房間相關事件中）
+        document.getElementById('gameModeSelect').addEventListener('change', (e) => {
+            this.handleGameModeChange(e.target.value);
         });
         
         // 加入房間
@@ -972,6 +985,18 @@ class MultiplayerShooterGame {
         
         document.getElementById('roomTitle').textContent = `房間: ${this.currentRoom.name}`;
         document.getElementById('currentRoomId').textContent = this.currentRoom.id;
+        
+        // 更新遊戲模式顯示
+        const gameModeText = this.currentRoom.gameMode === 'elimination' ? '⚡ 淘汰賽' : '💀 死亡競賽';
+        document.getElementById('currentGameMode').textContent = gameModeText;
+        
+        const hitsInfo = document.getElementById('hitsToEliminateInfo');
+        if (this.currentRoom.gameMode === 'elimination') {
+            document.getElementById('currentHitsToEliminate').textContent = this.currentRoom.hitsToEliminate;
+            hitsInfo.style.display = 'block';
+        } else {
+            hitsInfo.style.display = 'none';
+        }
         const playerCount = Array.isArray(this.currentRoom.players) 
             ? this.currentRoom.players.length 
             : this.currentRoom.players.size || 0;
@@ -1138,9 +1163,16 @@ class MultiplayerShooterGame {
         const playerName = document.getElementById('playerNameInput').value.trim();
         const maxPlayers = document.getElementById('maxPlayersSelect').value;
         const team = document.getElementById('teamSelect').value;
+        const gameMode = document.getElementById('gameModeSelect').value;
+        const hitsToEliminate = document.getElementById('hitsToEliminateInput').value;
         
         if (!roomName || !playerName) {
             alert('請填寫房間名稱和玩家名稱！');
+            return;
+        }
+        
+        if (gameMode === 'elimination' && (!hitsToEliminate || hitsToEliminate < 1 || hitsToEliminate > 100)) {
+            alert('請輸入有效的淘汰次數（1-100）！');
             return;
         }
         
@@ -1148,13 +1180,18 @@ class MultiplayerShooterGame {
         this.playerId = this.generatePlayerId();
         this.selectedTeam = team;
         
-        this.socket.emit('createRoom', {
+        const roomData = {
             roomName: roomName,
             playerName: playerName,
             maxPlayers: parseInt(maxPlayers),
             playerId: this.playerId,
-            team: team
-        });
+            team: team,
+            gameMode: gameMode,
+            hitsToEliminate: gameMode === 'elimination' ? parseInt(hitsToEliminate) : null
+        };
+        
+        console.log('創建房間數據:', roomData);
+        this.socket.emit('createRoom', roomData);
     }
     
     // 加入房間
@@ -1398,6 +1435,11 @@ class MultiplayerShooterGame {
     renderPlayer(player, isCurrentPlayer = false) {
         if (!player || typeof player.x === 'undefined' || typeof player.y === 'undefined') return;
         
+        // 如果玩家被淘汰，使用半透明效果
+        if (player.eliminated) {
+            this.ctx.globalAlpha = 0.3;
+        }
+        
         this.ctx.save();
         
         const centerX = player.x + 15;
@@ -1477,6 +1519,9 @@ class MultiplayerShooterGame {
         }
         
         this.ctx.restore();
+        
+        // 恢復透明度
+        this.ctx.globalAlpha = 1.0;
     }
     
     // 渲染子彈
@@ -1516,6 +1561,8 @@ class MultiplayerShooterGame {
                     this.gameData.health = player.health;
                     this.gameData.kills = player.kills;
                     this.gameData.deaths = player.deaths;
+                    this.gameData.hits = player.hits || 0;
+                    this.gameData.eliminated = player.eliminated || false;
                 } else {
                     this.otherPlayers.push(player);
                 }
@@ -1550,7 +1597,22 @@ class MultiplayerShooterGame {
         }
         
         if (deathCount) {
-            deathCount.textContent = this.gameData.deaths;
+            // 根據遊戲模式顯示不同的統計
+            if (this.currentRoom && this.currentRoom.gameMode === 'elimination') {
+                deathCount.textContent = this.gameData.hits || 0;
+                // 更新標籤文字
+                const deathLabel = document.querySelector('.stat-label:nth-of-type(3)');
+                if (deathLabel) {
+                    deathLabel.textContent = '被擊中';
+                }
+            } else {
+                deathCount.textContent = this.gameData.deaths;
+                // 恢復標籤文字
+                const deathLabel = document.querySelector('.stat-label:nth-of-type(3)');
+                if (deathLabel) {
+                    deathLabel.textContent = '死亡';
+                }
+            }
         }
         
         if (gameTimer) {
@@ -1746,6 +1808,16 @@ class MultiplayerShooterGame {
                 playerName: playerName,
                 playerId: this.playerId
             });
+        }
+    }
+    
+    // 處理遊戲模式變更
+    handleGameModeChange(gameMode) {
+        const hitsGroup = document.getElementById('hitsToEliminateGroup');
+        if (gameMode === 'elimination') {
+            hitsGroup.style.display = 'block';
+        } else {
+            hitsGroup.style.display = 'none';
         }
     }
 }

@@ -36,12 +36,15 @@ class GameServer {
             maxPlayers: roomData.maxPlayers || 4,
             players: new Map(),
             gameState: 'waiting', // waiting, playing, finished
+            gameMode: roomData.gameMode || 'deathmatch', // deathmatch, elimination
+            hitsToEliminate: roomData.hitsToEliminate || 3,
             gameData: {
                 startTime: null,
                 duration: 180, // 3分鐘
                 bullets: [],
                 powerUps: [],
-                obstacles: this.generateObstacles()
+                obstacles: this.generateObstacles(),
+                eliminatedPlayers: new Set() // 淘汰賽中被淘汰的玩家
             },
             host: roomData.hostId
         };
@@ -71,6 +74,8 @@ class GameServer {
                 health: 100,
                 kills: 0,
                 deaths: 0,
+                hits: 0, // 淘汰賽模式中被射中的次數
+                eliminated: false, // 是否被淘汰
                 angle: 0,
                 lastShot: 0,
                 color: this.getPlayerColor(room.players.size)
@@ -196,21 +201,61 @@ class GameServer {
                     const distance = Math.sqrt(dx * dx + dy * dy);
                     
                     if (distance < 20) {
-                        player.gameData.health -= bullet.damage;
                         hit = true;
                         
-                        if (player.gameData.health <= 0) {
-                            player.gameData.deaths++;
-                            player.gameData.health = 100;
+                        console.log(`玩家被射中 - 房間模式: ${room.gameMode}, 淘汰次數: ${room.hitsToEliminate}`);
+                        
+                        if (room.gameMode === 'elimination') {
+                            // 淘汰賽模式
+                            player.gameData.hits++;
                             
-                            // 增加射擊者擊殺數
-                            if (shooter) {
-                                shooter.gameData.kills++;
+                            if (player.gameData.hits >= room.hitsToEliminate) {
+                                // 玩家被淘汰
+                                player.gameData.eliminated = true;
+                                room.gameData.eliminatedPlayers.add(player.id);
+                                
+                                // 增加射擊者擊殺數
+                                if (shooter) {
+                                    shooter.gameData.kills++;
+                                }
+                                
+                                // 廣播淘汰消息
+                                io.to(roomId).emit('chatMessage', {
+                                    playerName: '系統',
+                                    message: `💀 ${player.name} 被 ${shooter?.name || '未知'} 淘汰了！`,
+                                    timestamp: Date.now(),
+                                    isSystem: true
+                                });
+                                
+                                // 檢查遊戲是否結束
+                                this.checkEliminationGameEnd(roomId);
+                            } else {
+                                // 還沒被淘汰，顯示剩餘次數
+                                const remaining = room.hitsToEliminate - player.gameData.hits;
+                                io.to(roomId).emit('chatMessage', {
+                                    playerName: '系統',
+                                    message: `🎯 ${player.name} 被射中！還能承受 ${remaining} 次攻擊`,
+                                    timestamp: Date.now(),
+                                    isSystem: true
+                                });
                             }
+                        } else {
+                            // 死亡競賽模式（原來的邏輯）
+                            player.gameData.health -= bullet.damage;
                             
-                            // 重生
-                            player.gameData.x = Math.random() * 740 + 30;
-                            player.gameData.y = Math.random() * 540 + 30;
+                            if (player.gameData.health <= 0) {
+                                player.gameData.deaths++;
+                                player.gameData.health = 100;
+                                
+                                // 增加射擊者擊殺數
+                                if (shooter) {
+                                    shooter.gameData.kills++;
+                                }
+                                
+                                // 重生
+                                player.gameData.x = Math.random() * 740 + 30;
+                                player.gameData.y = Math.random() * 540 + 30;
+                            }
                         }
                     }
                 }
@@ -248,6 +293,53 @@ class GameServer {
         console.log(`遊戲結束: 房間 ${roomId}`);
     }
     
+    // 檢查淘汰賽遊戲是否結束
+    checkEliminationGameEnd(roomId) {
+        const room = this.rooms.get(roomId);
+        if (!room || room.gameMode !== 'elimination') return;
+        
+        const alivePlayers = Array.from(room.players.values()).filter(p => !p.gameData.eliminated && !p.isAI);
+        const aliveAI = Array.from(room.players.values()).filter(p => !p.gameData.eliminated && p.isAI);
+        
+        // 檢查是否只剩一個真人玩家或所有真人玩家都被淘汰
+        if (alivePlayers.length <= 1) {
+            this.endEliminationGame(roomId);
+        }
+        // 檢查是否按隊伍進行，同隊伍的玩家是否都被淘汰
+        else {
+            const aliveTeams = new Set();
+            [...alivePlayers, ...aliveAI].forEach(player => {
+                if (player.team) {
+                    aliveTeams.add(player.team);
+                }
+            });
+            
+            if (aliveTeams.size <= 1) {
+                this.endEliminationGame(roomId);
+            }
+        }
+    }
+    
+    // 結束淘汰賽遊戲
+    endEliminationGame(roomId) {
+        const room = this.rooms.get(roomId);
+        if (!room) return;
+        
+        room.gameState = 'finished';
+        this.stopGameLoop(roomId);
+        
+        // 計算淘汰賽排名（存活玩家排在前面）
+        const rankings = Array.from(room.players.values())
+            .sort((a, b) => {
+                if (a.gameData.eliminated && !b.gameData.eliminated) return 1;
+                if (!a.gameData.eliminated && b.gameData.eliminated) return -1;
+                return b.gameData.kills - a.gameData.kills;
+            });
+        
+        io.to(roomId).emit('gameEnded', { rankings, gameMode: 'elimination' });
+        console.log(`淘汰賽結束: 房間 ${roomId}`);
+    }
+    
     // 廣播遊戲狀態
     broadcastGameState(roomId) {
         const room = this.rooms.get(roomId);
@@ -262,6 +354,8 @@ class GameServer {
                 health: player.gameData.health,
                 kills: player.gameData.kills,
                 deaths: player.gameData.deaths,
+                hits: player.gameData.hits || 0,
+                eliminated: player.gameData.eliminated || false,
                 angle: player.gameData.angle,
                 color: player.gameData.color,
                 team: player.team,
@@ -635,13 +729,19 @@ io.on('connection', (socket) => {
 
     // 創建房間
     socket.on('createRoom', (data) => {
+        console.log('收到創建房間請求:', data);
+        
         const roomData = {
             name: data.roomName,
             maxPlayers: data.maxPlayers,
-            hostId: data.playerId
+            hostId: data.playerId,
+            gameMode: data.gameMode,
+            hitsToEliminate: data.hitsToEliminate
         };
         
+        console.log('房間數據:', roomData);
         const room = gameServer.createRoom(roomData);
+        console.log('創建的房間:', { id: room.id, gameMode: room.gameMode, hitsToEliminate: room.hitsToEliminate });
         
         // 房主自動加入房間
         const playerData = {
@@ -661,6 +761,8 @@ io.on('connection', (socket) => {
                 name: room.name,
                 maxPlayers: room.maxPlayers,
                 host: room.host,
+                gameMode: room.gameMode,
+                hitsToEliminate: room.hitsToEliminate,
                 players: Array.from(room.players.values()).map(p => ({
                     id: p.id,
                     name: p.name,

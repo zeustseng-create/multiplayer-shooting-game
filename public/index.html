@@ -54,6 +54,18 @@
                         <option value="yellow">🟡 黃隊</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label>遊戲模式</label>
+                    <select id="gameModeSelect">
+                        <option value="deathmatch">💀 死亡競賽（重生模式）</option>
+                        <option value="elimination">⚡ 淘汰賽（一命模式）</option>
+                    </select>
+                </div>
+                <div class="form-group" id="hitsToEliminateGroup" style="display: none;">
+                    <label>被射中幾次淘汰</label>
+                    <input type="number" id="hitsToEliminateInput" min="1" max="100" value="3" placeholder="輸入次數（1-100）">
+                    <small>在淘汰賽模式中，玩家被射中指定次數後將被淘汰（建議：1-10次為快節奏，11-50次為中等，51-100次為耐久戰）</small>
+                </div>
                 <div class="button-group">
                     <button id="createRoomConfirmBtn" class="btn primary">創建房間</button>
                     <button id="backToMenuBtn" class="btn secondary">返回</button>
@@ -99,6 +111,14 @@
                     <div class="info-item">
                         <span class="label">玩家:</span>
                         <span><span id="currentPlayerCount">1</span>/<span id="maxPlayerCount">4</span></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">遊戲模式:</span>
+                        <span id="currentGameMode">死亡競賽</span>
+                    </div>
+                    <div class="info-item" id="hitsToEliminateInfo" style="display: none;">
+                        <span class="label">淘汰條件:</span>
+                        <span>被射中 <span id="currentHitsToEliminate">3</span> 次</span>
                     </div>
                 </div>
                 
