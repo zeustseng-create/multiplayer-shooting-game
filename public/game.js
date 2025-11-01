@@ -65,6 +65,19 @@ class MultiplayerShooterGame {
             this.loadAvailableRooms();
         });
         
+        // 開發者模式
+        document.getElementById('developerBtn').addEventListener('click', () => {
+            this.showDeveloperModal();
+        });
+        
+        document.getElementById('developerLoginBtn').addEventListener('click', () => {
+            this.loginDeveloper();
+        });
+        
+        document.getElementById('closeDeveloperModalBtn').addEventListener('click', () => {
+            this.closeDeveloperModal();
+        });
+        
         // 創建房間
         document.getElementById('createRoomConfirmBtn').addEventListener('click', () => {
             this.createRoom();
@@ -94,6 +107,41 @@ class MultiplayerShooterGame {
         
         document.getElementById('leaveRoomBtn').addEventListener('click', () => {
             this.leaveRoom();
+        });
+        
+        // AI 和隊伍功能
+        document.getElementById('addAiBtn').addEventListener('click', () => {
+            this.addAiPlayer();
+        });
+        
+        // 隊伍選擇按鈕
+        document.getElementById('teamRedBtn').addEventListener('click', () => {
+            this.selectTeam('red');
+        });
+        
+        document.getElementById('teamBlueBtn').addEventListener('click', () => {
+            this.selectTeam('blue');
+        });
+        
+        document.getElementById('teamGreenBtn').addEventListener('click', () => {
+            this.selectTeam('green');
+        });
+        
+        document.getElementById('teamYellowBtn').addEventListener('click', () => {
+            this.selectTeam('yellow');
+        });
+        
+        // 開發者控制面板
+        document.getElementById('deleteAllRoomsBtn').addEventListener('click', () => {
+            this.deleteAllRooms();
+        });
+        
+        document.getElementById('viewAllRoomsBtn').addEventListener('click', () => {
+            this.viewAllRooms();
+        });
+        
+        document.getElementById('backToMenuFromDeveloperBtn').addEventListener('click', () => {
+            this.showScreen('mainMenu');
         });
         
         // 聊天
@@ -227,6 +275,29 @@ class MultiplayerShooterGame {
         this.socket.on('chatMessage', (data) => {
             this.displayChatMessage(data);
         });
+        
+        // 隊伍相關事件
+        this.socket.on('playerTeamChanged', (data) => {
+            this.updatePlayerTeam(data.playerId, data.team);
+        });
+        
+        // 開發者相關事件
+        this.socket.on('developerData', (data) => {
+            this.displayDeveloperData(data);
+        });
+        
+        this.socket.on('allRoomsDeleted', () => {
+            alert('所有房間已被刪除');
+            this.showScreen('mainMenu');
+        });
+        
+        this.socket.on('allRoomsData', (rooms) => {
+            this.displaySpectateRooms(rooms);
+        });
+        
+        this.socket.on('spectateStarted', (data) => {
+            this.startSpectating(data.room);
+        });
     }
     
     updateConnectionStatus(status) {
@@ -259,6 +330,7 @@ class MultiplayerShooterGame {
         const roomName = document.getElementById('roomNameInput').value.trim();
         const playerName = document.getElementById('playerNameInput').value.trim();
         const maxPlayers = document.getElementById('maxPlayersSelect').value;
+        const team = document.getElementById('teamSelect').value;
         
         if (!roomName || !playerName) {
             alert('請填寫房間名稱和玩家名稱！');
@@ -267,12 +339,14 @@ class MultiplayerShooterGame {
         
         this.playerName = playerName;
         this.playerId = this.generatePlayerId();
+        this.selectedTeam = team;
         
         this.socket.emit('createRoom', {
             roomName: roomName,
             playerName: playerName,
             maxPlayers: parseInt(maxPlayers),
-            playerId: this.playerId
+            playerId: this.playerId,
+            team: team
         });
     }
     
@@ -726,6 +800,174 @@ class MultiplayerShooterGame {
     
     generatePlayerId() {
         return Math.random().toString(36).substring(2, 11);
+    }
+    
+    // 開發者模式功能
+    showDeveloperModal() {
+        document.getElementById('developerModal').classList.add('active');
+    }
+    
+    closeDeveloperModal() {
+        document.getElementById('developerModal').classList.remove('active');
+        document.getElementById('developerPassword').value = '';
+    }
+    
+    loginDeveloper() {
+        const password = document.getElementById('developerPassword').value;
+        if (password === 'P@ssw0rd') {
+            this.closeDeveloperModal();
+            this.isDeveloper = true;
+            this.showScreen('developerPanel');
+            this.loadDeveloperData();
+        } else {
+            alert('密碼錯誤！');
+        }
+    }
+    
+    loadDeveloperData() {
+        this.socket.emit('getDeveloperData');
+    }
+    
+    deleteAllRooms() {
+        if (confirm('確定要刪除所有房間嗎？')) {
+            this.socket.emit('deleteAllRooms');
+        }
+    }
+    
+    viewAllRooms() {
+        this.socket.emit('getAllRooms');
+    }
+    
+    spectateRoom(roomId) {
+        this.socket.emit('spectateRoom', { roomId });
+    }
+    
+    // 隊伍選擇功能
+    selectTeam(team) {
+        this.selectedTeam = team;
+        
+        // 更新 UI
+        document.querySelectorAll('.team-btn').forEach(btn => {
+            btn.classList.remove('selected');
+        });
+        document.getElementById(`team${team.charAt(0).toUpperCase() + team.slice(1)}Btn`).classList.add('selected');
+        
+        const teamNames = {
+            red: '🔴 紅隊',
+            blue: '🔵 藍隊', 
+            green: '🟢 綠隊',
+            yellow: '🟡 黃隊'
+        };
+        
+        document.getElementById('currentTeam').textContent = teamNames[team];
+        
+        // 通知服務器
+        if (this.socket && this.roomId) {
+            this.socket.emit('selectTeam', { team });
+        }
+    }
+    
+    // AI 玩家功能
+    addAiPlayer() {
+        if (this.socket && this.roomId) {
+            this.socket.emit('addAiPlayer');
+        }
+    }
+    
+    // 更新玩家隊伍顯示
+    updatePlayerTeam(playerId, team) {
+        // 更新房間中的玩家列表顯示
+        this.updateRoomInfo();
+    }
+    
+    // 顯示開發者數據
+    displayDeveloperData(data) {
+        const spectateContainer = document.getElementById('spectateRoomsList');
+        let html = '<h4>可觀戰房間</h4>';
+        
+        data.rooms.forEach(room => {
+            html += `
+                <div class="spectate-room-item" onclick="game.spectateRoom('${room.id}')">
+                    <strong>${room.name}</strong>
+                    <br>玩家: ${room.players.size}/${room.maxPlayers}
+                    <br>狀態: ${room.gameState}
+                </div>
+            `;
+        });
+        
+        if (data.rooms.length === 0) {
+            html += '<p>目前沒有房間</p>';
+        }
+        
+        spectateContainer.innerHTML = html;
+    }
+    
+    // 顯示可觀戰房間
+    displaySpectateRooms(rooms) {
+        this.displayDeveloperData({ rooms });
+    }
+    
+    // 開始觀戰
+    startSpectating(room) {
+        this.currentRoom = room;
+        this.gameState = 'spectating';
+        this.showScreen('gameScreen');
+        // 這裡可以添加觀戰模式的特殊 UI
+    }
+    
+    // 修改房間信息更新以支持隊伍和 AI 顯示
+    updateRoomInfo() {
+        if (!this.currentRoom) return;
+        
+        document.getElementById('roomTitle').textContent = `房間: ${this.currentRoom.name}`;
+        document.getElementById('currentRoomId').textContent = this.currentRoom.id;
+        document.getElementById('currentPlayerCount').textContent = this.currentRoom.players.size || 0;
+        document.getElementById('maxPlayerCount').textContent = this.currentRoom.maxPlayers;
+        
+        // 更新玩家列表
+        const playersList = document.getElementById('playersList');
+        let playersHTML = '';
+        
+        if (this.currentRoom.players) {
+            const playersArray = Array.isArray(this.currentRoom.players) 
+                ? this.currentRoom.players 
+                : Array.from(this.currentRoom.players.values());
+                
+            playersArray.forEach(player => {
+                const isCurrentPlayer = player.id === this.playerId;
+                const teamClass = player.team || 'none';
+                const teamName = {
+                    red: '🔴',
+                    blue: '🔵', 
+                    green: '🟢',
+                    yellow: '🟡'
+                }[player.team] || '';
+                
+                playersHTML += `
+                    <div class="player-item ${isCurrentPlayer ? 'current-player' : ''}">
+                        <span class="player-name">
+                            ${player.name}${isCurrentPlayer ? ' (你)' : ''}
+                            ${player.isAI ? ' <span class="player-ai">🤖</span>' : ''}
+                        </span>
+                        <div class="player-status">
+                            ${teamName ? `<span class="player-team ${teamClass}">${teamName}</span>` : ''}
+                            <span class="ready-status ${player.ready ? 'ready' : 'not-ready'}">
+                                ${player.ready ? '✓ 準備' : '⏳ 等待'}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        playersList.innerHTML = playersHTML || '<div class="no-players">沒有玩家</div>';
+        
+        // 更新開始遊戲按鈕狀態
+        const allReady = this.currentRoom.players && 
+            Array.from(this.currentRoom.players.values()).every(p => p.ready) &&
+            this.currentRoom.players.size >= 2;
+            
+        document.getElementById('startGameBtn').disabled = !allReady;
     }
 }
 

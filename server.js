@@ -64,6 +64,7 @@ class GameServer {
             name: playerData.name,
             socketId: playerData.socketId,
             ready: false,
+            team: playerData.team || null,
             gameData: {
                 x: Math.random() * 740 + 30,
                 y: Math.random() * 540 + 30,
@@ -179,8 +180,17 @@ class GameServer {
 
             // 檢查與玩家碰撞
             let hit = false;
+            const shooter = room.players.get(bullet.ownerId);
+            
             room.players.forEach(player => {
-                if (player.id !== bullet.ownerId && player.gameData.health > 0) {
+                // 檢查是否為同隊伍（同隊不能互相傷害）
+                const isSameTeam = shooter && player.team && shooter.team && 
+                                 player.team === shooter.team;
+                
+                if (player.id !== bullet.ownerId && 
+                    player.gameData.health > 0 && 
+                    !isSameTeam) {
+                    
                     const dx = bullet.x - (player.gameData.x + 15);
                     const dy = bullet.y - (player.gameData.y + 15);
                     const distance = Math.sqrt(dx * dx + dy * dy);
@@ -194,7 +204,6 @@ class GameServer {
                             player.gameData.health = 100;
                             
                             // 增加射擊者擊殺數
-                            const shooter = room.players.get(bullet.ownerId);
                             if (shooter) {
                                 shooter.gameData.kills++;
                             }
@@ -295,6 +304,118 @@ class GameServer {
         room.gameData.bullets.push(bullet);
     }
 
+    // 添加 AI 玩家
+    addAiPlayer(roomId) {
+        const room = this.rooms.get(roomId);
+        if (!room || room.players.size >= room.maxPlayers) return;
+        
+        const aiId = 'ai_' + Math.random().toString(36).substring(2, 11);
+        const aiNames = ['機器人Alpha', '機器人Beta', '機器人Gamma', '機器人Delta'];
+        const aiName = aiNames[Math.floor(Math.random() * aiNames.length)];
+        
+        const aiPlayer = {
+            id: aiId,
+            name: aiName,
+            socketId: null,
+            ready: true,
+            isAI: true,
+            team: ['red', 'blue', 'green', 'yellow'][Math.floor(Math.random() * 4)],
+            gameData: {
+                x: Math.random() * 740 + 30,
+                y: Math.random() * 540 + 30,
+                health: 100,
+                kills: 0,
+                deaths: 0,
+                angle: 0,
+                lastShot: 0,
+                color: this.getPlayerColor(room.players.size)
+            }
+        };
+        
+        room.players.set(aiId, aiPlayer);
+        console.log(`AI 玩家 ${aiName} 加入房間 ${roomId}`);
+        
+        // 啟動 AI 行為
+        this.startAiBehavior(roomId, aiId);
+    }
+    
+    // AI 行為邏輯
+    startAiBehavior(roomId, aiId) {
+        const aiInterval = setInterval(() => {
+            const room = this.rooms.get(roomId);
+            const aiPlayer = room?.players.get(aiId);
+            
+            if (!room || !aiPlayer || room.gameState !== 'playing') {
+                clearInterval(aiInterval);
+                return;
+            }
+            
+            // 簡單的 AI 移動邏輯
+            const moveChance = Math.random();
+            if (moveChance < 0.3) {
+                const direction = Math.random() * Math.PI * 2;
+                const speed = 3;
+                
+                let newX = aiPlayer.gameData.x + Math.cos(direction) * speed;
+                let newY = aiPlayer.gameData.y + Math.sin(direction) * speed;
+                
+                // 邊界檢查
+                newX = Math.max(0, Math.min(770, newX));
+                newY = Math.max(0, Math.min(570, newY));
+                
+                aiPlayer.gameData.x = newX;
+                aiPlayer.gameData.y = newY;
+            }
+            
+            // AI 射擊邏輯 - 尋找最近的敵對玩家
+            const nearestEnemy = this.findNearestEnemy(room, aiPlayer);
+            if (nearestEnemy && Math.random() < 0.1) { // 10% 機率射擊
+                const angle = Math.atan2(
+                    nearestEnemy.gameData.y - aiPlayer.gameData.y,
+                    nearestEnemy.gameData.x - aiPlayer.gameData.x
+                );
+                
+                aiPlayer.gameData.angle = angle;
+                this.handlePlayerShoot(room, aiPlayer, { angle });
+            }
+        }, 100);
+    }
+    
+    // 尋找最近的敵對玩家
+    findNearestEnemy(room, aiPlayer) {
+        let nearestEnemy = null;
+        let minDistance = Infinity;
+        
+        room.players.forEach(player => {
+            if (player.id !== aiPlayer.id && 
+                player.gameData.health > 0 && 
+                player.team !== aiPlayer.team) {
+                
+                const distance = Math.sqrt(
+                    Math.pow(player.gameData.x - aiPlayer.gameData.x, 2) +
+                    Math.pow(player.gameData.y - aiPlayer.gameData.y, 2)
+                );
+                
+                if (distance < minDistance && distance < 200) { // 200px 射程
+                    minDistance = distance;
+                    nearestEnemy = player;
+                }
+            }
+        });
+        
+        return nearestEnemy;
+    }
+    
+    // 開發者功能
+    deleteAllRooms() {
+        this.rooms.forEach((room, roomId) => {
+            this.stopGameLoop(roomId);
+        });
+        this.rooms.clear();
+        this.players.clear();
+        console.log('所有房間已被開發者刪除');
+    }
+
     broadcastGameState(roomId) {
         const room = this.rooms.get(roomId);
         if (!room) return;
@@ -379,7 +500,8 @@ io.on('connection', (socket) => {
         const playerData = {
             id: data.playerId,
             name: data.playerName,
-            socketId: socket.id
+            socketId: socket.id,
+            team: data.team
         };
         
         gameServer.joinRoom(room.id, playerData);
@@ -487,6 +609,66 @@ io.on('connection', (socket) => {
                     timestamp: Date.now()
                 });
             }
+        }
+    });
+
+    // 隊伍選擇
+    socket.on('selectTeam', (data) => {
+        const playerInfo = gameServer.players.get(socket.id);
+        if (playerInfo) {
+            const room = gameServer.rooms.get(playerInfo.roomId);
+            const player = room?.players.get(playerInfo.playerId);
+            if (player) {
+                player.team = data.team;
+                io.to(playerInfo.roomId).emit('playerTeamChanged', {
+                    playerId: player.id,
+                    team: data.team
+                });
+            }
+        }
+    });
+    
+    // 添加 AI 玩家
+    socket.on('addAiPlayer', () => {
+        const playerInfo = gameServer.players.get(socket.id);
+        if (playerInfo) {
+            const room = gameServer.rooms.get(playerInfo.roomId);
+            if (room && room.players.size < room.maxPlayers) {
+                gameServer.addAiPlayer(playerInfo.roomId);
+                io.to(playerInfo.roomId).emit('roomUpdated', room);
+            }
+        }
+    });
+    
+    // 開發者功能
+    socket.on('getDeveloperData', () => {
+        socket.emit('developerData', {
+            rooms: Array.from(gameServer.rooms.values()),
+            totalPlayers: gameServer.players.size
+        });
+    });
+    
+    socket.on('deleteAllRooms', () => {
+        gameServer.deleteAllRooms();
+        io.emit('allRoomsDeleted');
+    });
+    
+    socket.on('getAllRooms', () => {
+        socket.emit('allRoomsData', Array.from(gameServer.rooms.values()));
+    });
+    
+    socket.on('spectateRoom', (data) => {
+        const room = gameServer.rooms.get(data.roomId);
+        if (room) {
+            socket.join(data.roomId);
+            // 通知房間內的玩家有開發者進入觀戰
+            io.to(data.roomId).emit('chatMessage', {
+                playerName: '系統',
+                message: '🔧 開發者進入房間觀戰',
+                timestamp: Date.now(),
+                isSystem: true
+            });
+            socket.emit('spectateStarted', { room });
         }
     });
 

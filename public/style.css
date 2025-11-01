@@ -534,3 +534,201 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(255,255,255,0.5);
 }
+/* 開發者模式樣式 
+*/
+.menu-btn.developer {
+    background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+    border: 2px solid #ff6b6b;
+    color: white;
+    font-weight: bold;
+}
+
+.menu-btn.developer:hover {
+    background: linear-gradient(45deg, #ee5a24, #ff6b6b);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3);
+}
+
+/* 模態框樣式 */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+}
+
+/* 隊伍選擇樣式 */
+.team-selection {
+    margin: 20px 0;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    backdrop-filter: blur(10px);
+}
+
+.team-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.team-btn {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: white;
+}
+
+.team-btn.red {
+    background: linear-gradient(45deg, #ff4757, #ff3838);
+}
+
+.team-btn.blue {
+    background: linear-gradient(45deg, #3742fa, #2f3542);
+}
+
+.team-btn.green {
+    background: linear-gradient(45deg, #2ed573, #1e90ff);
+}
+
+.team-btn.yellow {
+    background: linear-gradient(45deg, #ffa502, #ff6348);
+}
+
+.team-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.team-btn.selected {
+    border: 3px solid #fff;
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+}
+
+.team-info {
+    margin-top: 10px;
+    font-weight: bold;
+    color: #ffd700;
+}
+
+/* AI 按鈕樣式 */
+.btn.ai {
+    background: linear-gradient(45deg, #9c88ff, #8c7ae6);
+    border: 2px solid #9c88ff;
+}
+
+.btn.ai:hover {
+    background: linear-gradient(45deg, #8c7ae6, #9c88ff);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(156, 136, 255, 0.3);
+}
+
+/* 開發者控制面板樣式 */
+.developer-container {
+    max-width: 800px;
+    width: 100%;
+    text-align: center;
+}
+
+.developer-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin: 30px 0;
+}
+
+.action-group {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 20px;
+    border-radius: 15px;
+    backdrop-filter: blur(10px);
+}
+
+.action-group h3 {
+    margin-bottom: 15px;
+    color: #ffd700;
+}
+
+.spectate-rooms {
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 15px;
+}
+
+.spectate-room-item {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 10px;
+    margin: 5px 0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.spectate-room-item:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateX(5px);
+}
+
+/* 玩家列表中的隊伍顯示 */
+.player-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    margin: 5px 0;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+}
+
+.player-team {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.player-team.red { background: #ff4757; }
+.player-team.blue { background: #3742fa; }
+.player-team.green { background: #2ed573; }
+.player-team.yellow { background: #ffa502; }
+
+.player-ai {
+    color: #9c88ff;
+    font-style: italic;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+    .team-buttons {
+        grid-template-columns: 1fr;
+    }
+    
+    .developer-actions {
+        grid-template-columns: 1fr;
+    }
+}

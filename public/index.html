@@ -16,6 +16,7 @@
                 <div class="menu-buttons">
                     <button id="createRoomBtn" class="menu-btn primary">創建房間</button>
                     <button id="joinRoomBtn" class="menu-btn secondary">加入房間</button>
+                    <button id="developerBtn" class="menu-btn developer">🔧 開發者模式</button>
                 </div>
                 <div class="game-info">
                     <p>🎯 使用 WASD 移動，滑鼠瞄準射擊</p>
@@ -42,6 +43,15 @@
                         <option value="2">2 人</option>
                         <option value="4" selected>4 人</option>
                         <option value="6">6 人</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>選擇隊伍</label>
+                    <select id="teamSelect">
+                        <option value="red">🔴 紅隊</option>
+                        <option value="blue">🔵 藍隊</option>
+                        <option value="green">🟢 綠隊</option>
+                        <option value="yellow">🟡 黃隊</option>
                     </select>
                 </div>
                 <div class="button-group">
@@ -97,7 +107,19 @@
                     <div id="playersList" class="players-list"></div>
                 </div>
                 
+                <div class="team-selection">
+                    <h3>隊伍選擇</h3>
+                    <div class="team-buttons">
+                        <button id="teamRedBtn" class="team-btn red">🔴 紅隊</button>
+                        <button id="teamBlueBtn" class="team-btn blue">🔵 藍隊</button>
+                        <button id="teamGreenBtn" class="team-btn green">🟢 綠隊</button>
+                        <button id="teamYellowBtn" class="team-btn yellow">🟡 黃隊</button>
+                    </div>
+                    <p class="team-info">當前隊伍: <span id="currentTeam">未選擇</span></p>
+                </div>
+                
                 <div class="button-group">
+                    <button id="addAiBtn" class="btn ai">🤖 添加 AI</button>
                     <button id="readyBtn" class="btn primary">準備</button>
                     <button id="startGameBtn" class="btn success" disabled>開始遊戲</button>
                     <button id="leaveRoomBtn" class="btn danger">離開房間</button>
@@ -175,6 +197,44 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
+        
+        <!-- 開發者模式彈窗 -->
+        <div id="developerModal" class="modal">
+            <div class="modal-content">
+                <h2>🔧 開發者模式</h2>
+                <div class="form-group">
+                    <label>輸入密碼</label>
+                    <input type="password" id="developerPassword" placeholder="請輸入開發者密碼">
+                </div>
+                <div class="button-group">
+                    <button id="developerLoginBtn" class="btn primary">登入</button>
+                    <button id="closeDeveloperModalBtn" class="btn secondary">取消</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 開發者控制面板 -->
+        <div id="developerPanel" class="screen">
+            <div class="developer-container">
+                <h2>🔧 開發者控制面板</h2>
+                <div class="developer-actions">
+                    <div class="action-group">
+                        <h3>房間管理</h3>
+                        <button id="deleteAllRoomsBtn" class="btn danger">刪除所有房間</button>
+                        <button id="viewAllRoomsBtn" class="btn info">查看所有房間</button>
+                    </div>
+                    <div class="action-group">
+                        <h3>觀戰模式</h3>
+                        <div id="spectateRoomsList" class="spectate-rooms"></div>
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button id="backToMenuFromDeveloperBtn" class="btn secondary">返回主選單</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="game.js"></script>
 </body>
 </html>
