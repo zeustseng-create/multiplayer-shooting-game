@@ -406,6 +406,55 @@ class GameServer {
         return nearestEnemy;
     }
     
+    // 踢人功能
+    kickPlayer(roomId, kickedPlayerId, hostSocketId) {
+        const room = this.rooms.get(roomId);
+        if (!room) return;
+        
+        const kickedPlayer = room.players.get(kickedPlayerId);
+        if (!kickedPlayer) return;
+        
+        // 找到被踢玩家的 socket
+        let kickedSocketId = null;
+        this.players.forEach((playerInfo, socketId) => {
+            if (playerInfo.playerId === kickedPlayerId && playerInfo.roomId === roomId) {
+                kickedSocketId = socketId;
+            }
+        });
+        
+        // 從房間移除玩家
+        room.players.delete(kickedPlayerId);
+        if (kickedSocketId) {
+            this.players.delete(kickedSocketId);
+        }
+        
+        // 通知所有玩家
+        io.to(roomId).emit('playerKicked', {
+            kickedPlayerId: kickedPlayerId,
+            kickedPlayerName: kickedPlayer.name
+        });
+        
+        // 通知被踢的玩家
+        if (kickedSocketId) {
+            io.to(kickedSocketId).emit('playerKicked', {
+                kickedPlayerId: kickedPlayerId,
+                kickedPlayerName: kickedPlayer.name
+            });
+        }
+        
+        // 更新房間信息
+        io.to(roomId).emit('roomUpdated', room);
+        
+        console.log(`玩家 ${kickedPlayer.name} 被踢出房間 ${roomId}`);
+        
+        // 如果房間空了，刪除房間
+        if (room.players.size === 0) {
+            this.rooms.delete(roomId);
+            this.stopGameLoop(roomId);
+            console.log(`房間 ${roomId} 已刪除（無玩家）`);
+        }
+    }
+    
     // 開發者功能
     deleteAllRooms() {
         this.rooms.forEach((room, roomId) => {
@@ -513,10 +562,13 @@ io.on('connection', (socket) => {
                 id: room.id,
                 name: room.name,
                 maxPlayers: room.maxPlayers,
+                host: room.host,
                 players: Array.from(room.players.values()).map(p => ({
                     id: p.id,
                     name: p.name,
-                    ready: p.ready
+                    ready: p.ready,
+                    team: p.team,
+                    isAI: p.isAI
                 }))
             }
         });
@@ -537,10 +589,13 @@ io.on('connection', (socket) => {
                 id: result.id,
                 name: result.name,
                 maxPlayers: result.maxPlayers,
+                host: result.host,
                 players: Array.from(result.players.values()).map(p => ({
                     id: p.id,
                     name: p.name,
-                    ready: p.ready
+                    ready: p.ready,
+                    team: p.team,
+                    isAI: p.isAI
                 }))
             };
             
@@ -669,6 +724,18 @@ io.on('connection', (socket) => {
                 isSystem: true
             });
             socket.emit('spectateStarted', { room });
+        }
+    });
+    
+    // 踢人功能
+    socket.on('kickPlayer', (data) => {
+        const playerInfo = gameServer.players.get(socket.id);
+        if (playerInfo) {
+            const room = gameServer.rooms.get(playerInfo.roomId);
+            if (room && room.host === playerInfo.playerId) {
+                // 只有房主可以踢人
+                gameServer.kickPlayer(playerInfo.roomId, data.playerId, socket.id);
+            }
         }
     });
 

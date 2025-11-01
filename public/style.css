@@ -731,4 +731,37 @@ body {
     .developer-actions {
         grid-template-columns: 1fr;
     }
+}/* 踢人按鈕樣式
+ */
+.kick-btn {
+    background: linear-gradient(45deg, #ff4757, #ff3838);
+    border: none;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    margin-left: 8px;
+    transition: all 0.3s ease;
+}
+
+.kick-btn:hover {
+    background: linear-gradient(45deg, #ff3838, #ff4757);
+    transform: scale(1.05);
+}
+
+.player-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.host-badge {
+    background: linear-gradient(45deg, #ffd700, #ffed4e);
+    color: #333;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    margin-left: 5px;
 }

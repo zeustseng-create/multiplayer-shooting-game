@@ -298,6 +298,23 @@ class MultiplayerShooterGame {
         this.socket.on('spectateStarted', (data) => {
             this.startSpectating(data.room);
         });
+        
+        // 踢人相關事件
+        this.socket.on('playerKicked', (data) => {
+            if (data.kickedPlayerId === this.playerId) {
+                alert('你被房主踢出房間了！');
+                this.showScreen('mainMenu');
+                this.currentRoom = null;
+                this.roomId = null;
+            } else {
+                this.displayChatMessage({
+                    playerName: '系統',
+                    message: `${data.kickedPlayerName} 被踢出房間`,
+                    timestamp: Date.now(),
+                    isSystem: true
+                });
+            }
+        });
     }
     
     updateConnectionStatus(status) {
@@ -924,6 +941,9 @@ class MultiplayerShooterGame {
         document.getElementById('currentPlayerCount').textContent = this.currentRoom.players.size || 0;
         document.getElementById('maxPlayerCount').textContent = this.currentRoom.maxPlayers;
         
+        // 檢查當前玩家是否為房主
+        const isHost = this.currentRoom.host === this.playerId;
+        
         // 更新玩家列表
         const playersList = document.getElementById('playersList');
         let playersHTML = '';
@@ -935,6 +955,7 @@ class MultiplayerShooterGame {
                 
             playersArray.forEach(player => {
                 const isCurrentPlayer = player.id === this.playerId;
+                const isPlayerHost = player.id === this.currentRoom.host;
                 const teamClass = player.team || 'none';
                 const teamName = {
                     red: '🔴',
@@ -943,17 +964,26 @@ class MultiplayerShooterGame {
                     yellow: '🟡'
                 }[player.team] || '';
                 
+                // 踢人按鈕：只有房主可以踢人，且不能踢自己
+                const kickButton = (isHost && !isCurrentPlayer && !player.isAI) 
+                    ? `<button class="kick-btn" onclick="game.kickPlayer('${player.id}')">踢出</button>` 
+                    : '';
+                
                 playersHTML += `
                     <div class="player-item ${isCurrentPlayer ? 'current-player' : ''}">
                         <span class="player-name">
                             ${player.name}${isCurrentPlayer ? ' (你)' : ''}
                             ${player.isAI ? ' <span class="player-ai">🤖</span>' : ''}
+                            ${isPlayerHost ? ' <span class="host-badge">👑 房主</span>' : ''}
                         </span>
-                        <div class="player-status">
-                            ${teamName ? `<span class="player-team ${teamClass}">${teamName}</span>` : ''}
-                            <span class="ready-status ${player.ready ? 'ready' : 'not-ready'}">
-                                ${player.ready ? '✓ 準備' : '⏳ 等待'}
-                            </span>
+                        <div class="player-actions">
+                            <div class="player-status">
+                                ${teamName ? `<span class="player-team ${teamClass}">${teamName}</span>` : ''}
+                                <span class="ready-status ${player.ready ? 'ready' : 'not-ready'}">
+                                    ${player.ready ? '✓ 準備' : '⏳ 等待'}
+                                </span>
+                            </div>
+                            ${kickButton}
                         </div>
                     </div>
                 `;
@@ -968,6 +998,13 @@ class MultiplayerShooterGame {
             this.currentRoom.players.size >= 2;
             
         document.getElementById('startGameBtn').disabled = !allReady;
+    }
+    
+    // 踢人功能
+    kickPlayer(playerId) {
+        if (confirm('確定要踢出這個玩家嗎？')) {
+            this.socket.emit('kickPlayer', { playerId });
+        }
     }
 }
 
