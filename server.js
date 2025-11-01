@@ -790,6 +790,43 @@ io.on('connection', (socket) => {
         }
     });
     
+    // 切換準備狀態
+    socket.on('toggleReady', () => {
+        const playerInfo = gameServer.players.get(socket.id);
+        if (playerInfo) {
+            const room = gameServer.rooms.get(playerInfo.roomId);
+            const player = room?.players.get(playerInfo.playerId);
+            if (player && !player.isAI) {
+                player.ready = !player.ready;
+                
+                // 廣播準備狀態更新
+                io.to(playerInfo.roomId).emit('playerReadyUpdate', {
+                    playerId: player.id,
+                    ready: player.ready
+                });
+                
+                // 廣播房間更新
+                const roomData = {
+                    id: room.id,
+                    name: room.name,
+                    maxPlayers: room.maxPlayers,
+                    host: room.host,
+                    players: Array.from(room.players.values()).map(p => ({
+                        id: p.id,
+                        name: p.name,
+                        ready: p.ready,
+                        team: p.team,
+                        isAI: p.isAI
+                    }))
+                };
+                
+                io.to(playerInfo.roomId).emit('roomUpdated', roomData);
+                
+                console.log(`玩家 ${player.name} 準備狀態: ${player.ready}`);
+            }
+        }
+    });
+
     // 開發者功能
     socket.on('getDeveloperData', () => {
         socket.emit('developerData', {

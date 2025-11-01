@@ -1027,6 +1027,16 @@ class MultiplayerShooterGame {
         } else {
             startGameBtn.style.display = 'none';
         }
+        
+        // 更新準備按鈕狀態
+        const readyBtn = document.getElementById('readyBtn');
+        if (readyBtn) {
+            const currentPlayer = Array.from(this.currentRoom.players.values()).find(p => p.id === this.playerId);
+            if (currentPlayer) {
+                readyBtn.textContent = currentPlayer.ready ? '取消準備' : '準備';
+                readyBtn.className = currentPlayer.ready ? 'btn ready' : 'btn primary';
+            }
+        }
     }
     
     // 踢人功能
@@ -1132,6 +1142,30 @@ class MultiplayerShooterGame {
     // 生成玩家 ID
     generatePlayerId() {
         return Math.random().toString(36).substring(2, 11);
+    }
+    
+    // 切換準備狀態
+    toggleReady() {
+        if (this.socket && this.roomId) {
+            this.socket.emit('toggleReady');
+        }
+    }
+    
+    // 開始遊戲
+    startGame() {
+        if (this.socket && this.roomId) {
+            this.socket.emit('startGame');
+        }
+    }
+    
+    // 離開房間
+    leaveRoom() {
+        if (this.socket && this.roomId) {
+            this.socket.emit('leaveRoom');
+            this.currentRoom = null;
+            this.roomId = null;
+            this.showScreen('mainMenu');
+        }
     }
     
     // 發送聊天消息
