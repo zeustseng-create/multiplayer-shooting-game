@@ -1051,6 +1051,127 @@ class MultiplayerShooterGame {
         }
     }
     
+    // 開始遊戲
+    startGame() {
+        if (this.socket && this.roomId) {
+            this.socket.emit('startGame');
+        }
+    }
+    
+    // 切換準備狀態
+    toggleReady() {
+        if (this.socket && this.roomId) {
+            this.socket.emit('toggleReady');
+        }
+    }
+    
+    // 離開房間
+    leaveRoom() {
+        if (this.socket && this.roomId) {
+            this.socket.emit('leaveRoom');
+            this.currentRoom = null;
+            this.roomId = null;
+            this.showScreen('mainMenu');
+        }
+    }
+    
+    // 顯示畫面
+    showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(screen => {
+            screen.classList.remove('active');
+        });
+        document.getElementById(screenId).classList.add('active');
+        this.currentScreen = screenId;
+    }
+    
+    // 創建房間
+    createRoom() {
+        const roomName = document.getElementById('roomNameInput').value.trim();
+        const playerName = document.getElementById('playerNameInput').value.trim();
+        const maxPlayers = document.getElementById('maxPlayersSelect').value;
+        const team = document.getElementById('teamSelect').value;
+        
+        if (!roomName || !playerName) {
+            alert('請填寫房間名稱和玩家名稱！');
+            return;
+        }
+        
+        this.playerName = playerName;
+        this.playerId = this.generatePlayerId();
+        this.selectedTeam = team;
+        
+        this.socket.emit('createRoom', {
+            roomName: roomName,
+            playerName: playerName,
+            maxPlayers: parseInt(maxPlayers),
+            playerId: this.playerId,
+            team: team
+        });
+    }
+    
+    // 加入房間
+    joinRoom() {
+        const roomId = document.getElementById('roomIdInput').value.trim();
+        const playerName = document.getElementById('joinPlayerNameInput').value.trim();
+        
+        if (!playerName) {
+            alert('請填寫玩家名稱！');
+            return;
+        }
+        
+        this.playerName = playerName;
+        this.playerId = this.generatePlayerId();
+        
+        this.socket.emit('joinRoom', {
+            roomId: roomId,
+            playerName: playerName,
+            playerId: this.playerId
+        });
+    }
+    
+    // 生成玩家 ID
+    generatePlayerId() {
+        return Math.random().toString(36).substring(2, 11);
+    }
+    
+    // 發送聊天消息
+    sendChatMessage() {
+        const chatInput = document.getElementById('chatInput');
+        const message = chatInput.value.trim();
+        
+        if (message && this.socket && this.roomId) {
+            this.socket.emit('chatMessage', { message });
+            chatInput.value = '';
+        }
+    }
+    
+    // 顯示聊天消息
+    displayChatMessage(data) {
+        const chatMessages = document.getElementById('chatMessages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `chat-message ${data.isSystem ? 'system' : ''}`;
+        
+        const time = new Date(data.timestamp).toLocaleTimeString('zh-TW', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        messageDiv.innerHTML = `
+            <span class="chat-time">[${time}]</span>
+            <span class="chat-name">${data.playerName}:</span>
+            <span class="chat-text">${data.message}</span>
+        `;
+        
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    // 更新連接狀態
+    updateConnectionStatus(status) {
+        // 這裡可以添加連接狀態顯示邏輯
+        console.log('連接狀態:', status);
+    }
+    
     // 隊伍選擇功能
     selectTeam(team) {
         this.selectedTeam = team;
