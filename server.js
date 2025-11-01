@@ -710,8 +710,30 @@ io.on('connection', (socket) => {
         if (playerInfo) {
             const room = gameServer.rooms.get(playerInfo.roomId);
             if (room && room.host === playerInfo.playerId) {
-                if (gameServer.startGame(playerInfo.roomId)) {
-                    io.to(playerInfo.roomId).emit('gameStarted');
+                // 檢查所有真人玩家是否準備好
+                const humanPlayers = Array.from(room.players.values()).filter(p => !p.isAI);
+                const allHumansReady = humanPlayers.length > 0 && humanPlayers.every(p => p.ready);
+                
+                console.log('開始遊戲檢查:', {
+                    roomId: room.id,
+                    totalPlayers: room.players.size,
+                    humanPlayers: humanPlayers.length,
+                    allHumansReady,
+                    playersStatus: Array.from(room.players.values()).map(p => ({ 
+                        name: p.name, 
+                        ready: p.ready, 
+                        isAI: p.isAI 
+                    }))
+                });
+                
+                if (allHumansReady && room.players.size >= 2) {
+                    if (gameServer.startGame(playerInfo.roomId)) {
+                        io.to(playerInfo.roomId).emit('gameStarted');
+                    }
+                } else {
+                    socket.emit('startGameError', { 
+                        message: '所有玩家必須準備好才能開始遊戲' 
+                    });
                 }
             }
         }

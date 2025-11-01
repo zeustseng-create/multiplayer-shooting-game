@@ -321,6 +321,11 @@ class MultiplayerShooterGame {
             this.currentRoom = room;
             this.updateRoomInfo();
         });
+        
+        // 開始遊戲錯誤處理
+        this.socket.on('startGameError', (data) => {
+            alert(data.message);
+        });
     }
     
     updateConnectionStatus(status) {
@@ -472,7 +477,12 @@ class MultiplayerShooterGame {
     }
     
     startGame() {
-        this.socket.emit('startGame');
+        if (this.socket && this.roomId) {
+            console.log('發送開始遊戲請求');
+            this.socket.emit('startGame');
+        } else {
+            console.log('無法開始遊戲：socket 或 roomId 不存在');
+        }
     }
     
     leaveRoom() {
@@ -1016,14 +1026,27 @@ class MultiplayerShooterGame {
         playersList.innerHTML = playersHTML || '<div class="no-players">沒有玩家</div>';
         
         // 更新開始遊戲按鈕狀態：只有房主可以開始遊戲，且所有玩家都準備好
-        const allReady = this.currentRoom.players && 
-            Array.from(this.currentRoom.players.values()).every(p => p.ready) &&
-            this.currentRoom.players.size >= 2;
+        const playersArray = Array.from(this.currentRoom.players.values());
+        const humanPlayers = playersArray.filter(p => !p.isAI); // 只檢查真人玩家的準備狀態
+        const allHumansReady = humanPlayers.length > 0 && humanPlayers.every(p => p.ready);
+        const hasEnoughPlayers = this.currentRoom.players.size >= 2;
+        
+        console.log('開始遊戲檢查:', {
+            isHost,
+            totalPlayers: this.currentRoom.players.size,
+            humanPlayers: humanPlayers.length,
+            allHumansReady,
+            hasEnoughPlayers,
+            playersStatus: playersArray.map(p => ({ name: p.name, ready: p.ready, isAI: p.isAI }))
+        });
+        
+        const canStartGame = isHost && allHumansReady && hasEnoughPlayers;
             
         const startGameBtn = document.getElementById('startGameBtn');
         if (isHost) {
-            startGameBtn.disabled = !allReady;
+            startGameBtn.disabled = !canStartGame;
             startGameBtn.style.display = 'inline-block';
+            startGameBtn.textContent = canStartGame ? '開始遊戲' : '等待玩家準備';
         } else {
             startGameBtn.style.display = 'none';
         }
@@ -1058,13 +1081,6 @@ class MultiplayerShooterGame {
     changeAiTeam(aiId, team) {
         if (this.socket && this.roomId) {
             this.socket.emit('changeAiTeam', { aiId, team });
-        }
-    }
-    
-    // 開始遊戲
-    startGame() {
-        if (this.socket && this.roomId) {
-            this.socket.emit('startGame');
         }
     }
     
@@ -1148,13 +1164,6 @@ class MultiplayerShooterGame {
     toggleReady() {
         if (this.socket && this.roomId) {
             this.socket.emit('toggleReady');
-        }
-    }
-    
-    // 開始遊戲
-    startGame() {
-        if (this.socket && this.roomId) {
-            this.socket.emit('startGame');
         }
     }
     
