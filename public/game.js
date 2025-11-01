@@ -492,6 +492,15 @@ class MultiplayerShooterGame {
         this.showScreen('mainMenu');
     }
     
+    // 退出遊戲
+    exitGame() {
+        if (this.gameLoop) {
+            clearInterval(this.gameLoop);
+        }
+        this.gameState = 'waiting';
+        this.showScreen('roomWaitingScreen');
+    }
+    
     sendChatMessage() {
         const input = document.getElementById('chatInput');
         const message = input.value.trim();
