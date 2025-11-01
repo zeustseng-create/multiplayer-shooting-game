@@ -690,7 +690,31 @@ io.on('connection', (socket) => {
             const room = gameServer.rooms.get(playerInfo.roomId);
             if (room && room.players.size < room.maxPlayers) {
                 gameServer.addAiPlayer(playerInfo.roomId);
-                io.to(playerInfo.roomId).emit('roomUpdated', room);
+                
+                // 廣播房間更新
+                const roomData = {
+                    id: room.id,
+                    name: room.name,
+                    maxPlayers: room.maxPlayers,
+                    host: room.host,
+                    players: Array.from(room.players.values()).map(p => ({
+                        id: p.id,
+                        name: p.name,
+                        ready: p.ready,
+                        team: p.team,
+                        isAI: p.isAI
+                    }))
+                };
+                
+                io.to(playerInfo.roomId).emit('roomUpdated', roomData);
+                
+                // 發送聊天消息通知
+                io.to(playerInfo.roomId).emit('chatMessage', {
+                    playerName: '系統',
+                    message: `🤖 AI 玩家已加入房間`,
+                    timestamp: Date.now(),
+                    isSystem: true
+                });
             }
         }
     });

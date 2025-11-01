@@ -315,6 +315,12 @@ class MultiplayerShooterGame {
                 });
             }
         });
+        
+        // 房間更新事件（用於 AI 添加等）
+        this.socket.on('roomUpdated', (room) => {
+            this.currentRoom = room;
+            this.updateRoomInfo();
+        });
     }
     
     updateConnectionStatus(status) {
@@ -887,7 +893,11 @@ class MultiplayerShooterGame {
     // AI 玩家功能
     addAiPlayer() {
         if (this.socket && this.roomId) {
+            console.log('發送 addAiPlayer 請求到房間:', this.roomId);
             this.socket.emit('addAiPlayer');
+        } else {
+            console.log('無法添加 AI：socket 或 roomId 不存在', { socket: !!this.socket, roomId: this.roomId });
+            alert('無法添加 AI 玩家，請確保已連接到房間');
         }
     }
     
@@ -1005,6 +1015,112 @@ class MultiplayerShooterGame {
         if (confirm('確定要踢出這個玩家嗎？')) {
             this.socket.emit('kickPlayer', { playerId });
         }
+    }
+    
+    // 隊伍選擇功能
+    selectTeam(team) {
+        this.selectedTeam = team;
+        
+        // 更新 UI
+        document.querySelectorAll('.team-btn').forEach(btn => {
+            btn.classList.remove('selected');
+        });
+        document.getElementById(`team${team.charAt(0).toUpperCase() + team.slice(1)}Btn`).classList.add('selected');
+        
+        const teamNames = {
+            red: '🔴 紅隊',
+            blue: '🔵 藍隊', 
+            green: '🟢 綠隊',
+            yellow: '🟡 黃隊'
+        };
+        
+        document.getElementById('currentTeam').textContent = teamNames[team];
+        
+        // 通知服務器
+        if (this.socket && this.roomId) {
+            this.socket.emit('selectTeam', { team });
+        }
+    }
+    
+    // 開發者模式功能
+    showDeveloperModal() {
+        document.getElementById('developerModal').classList.add('active');
+    }
+    
+    closeDeveloperModal() {
+        document.getElementById('developerModal').classList.remove('active');
+        document.getElementById('developerPassword').value = '';
+    }
+    
+    loginDeveloper() {
+        const password = document.getElementById('developerPassword').value;
+        if (password === 'P@ssw0rd') {
+            this.closeDeveloperModal();
+            this.isDeveloper = true;
+            this.showScreen('developerPanel');
+            this.loadDeveloperData();
+        } else {
+            alert('密碼錯誤！');
+        }
+    }
+    
+    loadDeveloperData() {
+        this.socket.emit('getDeveloperData');
+    }
+    
+    deleteAllRooms() {
+        if (confirm('確定要刪除所有房間嗎？')) {
+            this.socket.emit('deleteAllRooms');
+        }
+    }
+    
+    viewAllRooms() {
+        this.socket.emit('getAllRooms');
+    }
+    
+    spectateRoom(roomId) {
+        this.socket.emit('spectateRoom', { roomId });
+    }
+    
+    // 更新玩家隊伍顯示
+    updatePlayerTeam(playerId, team) {
+        // 更新房間中的玩家列表顯示
+        this.updateRoomInfo();
+    }
+    
+    // 顯示開發者數據
+    displayDeveloperData(data) {
+        const spectateContainer = document.getElementById('spectateRoomsList');
+        let html = '<h4>可觀戰房間</h4>';
+        
+        data.rooms.forEach(room => {
+            html += `
+                <div class="spectate-room-item" onclick="game.spectateRoom('${room.id}')">
+                    <strong>${room.name}</strong>
+                    <br>玩家: ${room.players.size}/${room.maxPlayers}
+                    <br>狀態: ${room.gameState}
+                </div>
+            `;
+        });
+        
+        if (data.rooms.length === 0) {
+            html += '<p>目前沒有房間</p>';
+        }
+        
+        spectateContainer.innerHTML = html;
+    }
+    
+    // 顯示可觀戰房間
+    displaySpectateRooms(rooms) {
+        this.displayDeveloperData({ rooms });
+    }
+    
+    // 開始觀戰
+    startSpectating(room) {
+        this.currentRoom = room;
+        this.gameState = 'spectating';
+        this.showScreen('gameScreen');
+        // 這裡可以添加觀戰模式的特殊 UI
     }
 }
 
