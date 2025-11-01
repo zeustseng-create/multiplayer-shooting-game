@@ -974,9 +974,9 @@ class MultiplayerShooterGame {
                     yellow: '🟡'
                 }[player.team] || '';
                 
-                // 踢人按鈕：只有房主可以踢人，且不能踢自己
-                const kickButton = (isHost && !isCurrentPlayer && !player.isAI) 
-                    ? `<button class="kick-btn" onclick="game.kickPlayer('${player.id}')">踢出</button>` 
+                // 踢人按鈕：房主可以踢人（包括 AI），但不能踢自己
+                const kickButton = (isHost && !isCurrentPlayer) 
+                    ? `<button class="kick-btn" onclick="game.kickPlayer('${player.id}')">${player.isAI ? '移除' : '踢出'}</button>` 
                     : '';
                 
                 // AI 隊伍選擇按鈕：只有房主可以改變 AI 隊伍
@@ -1015,17 +1015,31 @@ class MultiplayerShooterGame {
         
         playersList.innerHTML = playersHTML || '<div class="no-players">沒有玩家</div>';
         
-        // 更新開始遊戲按鈕狀態
+        // 更新開始遊戲按鈕狀態：只有房主可以開始遊戲，且所有玩家都準備好
         const allReady = this.currentRoom.players && 
             Array.from(this.currentRoom.players.values()).every(p => p.ready) &&
             this.currentRoom.players.size >= 2;
             
-        document.getElementById('startGameBtn').disabled = !allReady;
+        const startGameBtn = document.getElementById('startGameBtn');
+        if (isHost) {
+            startGameBtn.disabled = !allReady;
+            startGameBtn.style.display = 'inline-block';
+        } else {
+            startGameBtn.style.display = 'none';
+        }
     }
     
     // 踢人功能
     kickPlayer(playerId) {
-        if (confirm('確定要踢出這個玩家嗎？')) {
+        // 找到玩家信息來確定是 AI 還是真人
+        const playersArray = Array.isArray(this.currentRoom.players) 
+            ? this.currentRoom.players 
+            : Array.from(this.currentRoom.players.values());
+        
+        const player = playersArray.find(p => p.id === playerId);
+        const actionText = player?.isAI ? '移除這個 AI 玩家' : '踢出這個玩家';
+        
+        if (confirm(`確定要${actionText}嗎？`)) {
             this.socket.emit('kickPlayer', { playerId });
         }
     }

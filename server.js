@@ -431,21 +431,46 @@ class GameServer {
         // 通知所有玩家
         io.to(roomId).emit('playerKicked', {
             kickedPlayerId: kickedPlayerId,
-            kickedPlayerName: kickedPlayer.name
+            kickedPlayerName: kickedPlayer.name,
+            isAI: kickedPlayer.isAI
         });
         
-        // 通知被踢的玩家
-        if (kickedSocketId) {
+        // 通知被踢的玩家（只有真人玩家需要通知）
+        if (kickedSocketId && !kickedPlayer.isAI) {
             io.to(kickedSocketId).emit('playerKicked', {
                 kickedPlayerId: kickedPlayerId,
-                kickedPlayerName: kickedPlayer.name
+                kickedPlayerName: kickedPlayer.name,
+                isAI: false
             });
         }
         
-        // 更新房間信息
-        io.to(roomId).emit('roomUpdated', room);
+        // 廣播房間更新
+        const roomData = {
+            id: room.id,
+            name: room.name,
+            maxPlayers: room.maxPlayers,
+            host: room.host,
+            players: Array.from(room.players.values()).map(p => ({
+                id: p.id,
+                name: p.name,
+                ready: p.ready,
+                team: p.team,
+                isAI: p.isAI
+            }))
+        };
         
-        console.log(`玩家 ${kickedPlayer.name} 被踢出房間 ${roomId}`);
+        io.to(roomId).emit('roomUpdated', roomData);
+        
+        // 發送聊天消息
+        const actionText = kickedPlayer.isAI ? '移除' : '踢出';
+        io.to(roomId).emit('chatMessage', {
+            playerName: '系統',
+            message: `${kickedPlayer.isAI ? '🤖' : '👤'} ${kickedPlayer.name} 被${actionText}房間`,
+            timestamp: Date.now(),
+            isSystem: true
+        });
+        
+        console.log(`${kickedPlayer.isAI ? 'AI' : '玩家'} ${kickedPlayer.name} 被${actionText}房間 ${roomId}`);
         
         // 如果房間空了，刪除房間
         if (room.players.size === 0) {
