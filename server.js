@@ -247,6 +247,33 @@ class GameServer {
         io.to(roomId).emit('gameEnded', { rankings });
         console.log(`遊戲結束: 房間 ${roomId}`);
     }
+    
+    // 廣播遊戲狀態
+    broadcastGameState(roomId) {
+        const room = this.rooms.get(roomId);
+        if (!room || room.gameState !== 'playing') return;
+        
+        const gameState = {
+            players: Array.from(room.players.values()).map(player => ({
+                id: player.id,
+                name: player.name,
+                x: player.gameData.x,
+                y: player.gameData.y,
+                health: player.gameData.health,
+                kills: player.gameData.kills,
+                deaths: player.gameData.deaths,
+                angle: player.gameData.angle,
+                color: player.gameData.color,
+                team: player.team,
+                isAI: player.isAI
+            })),
+            bullets: room.gameData.bullets,
+            obstacles: room.gameData.obstacles,
+            gameTime: Math.floor((Date.now() - room.gameData.startTime) / 1000)
+        };
+        
+        io.to(roomId).emit('gameState', gameState);
+    }
 
     handlePlayerAction(socketId, action) {
         const playerInfo = this.players.get(socketId);

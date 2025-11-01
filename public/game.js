@@ -259,8 +259,10 @@ class MultiplayerShooterGame {
         // 遊戲事件
         this.socket.on('gameStarted', () => {
             this.gameState = 'playing';
+            this.gameStartTime = Date.now();
             this.showScreen('gameScreen');
             this.initGame();
+            console.log('遊戲開始！');
         });
         
         this.socket.on('gameState', (gameState) => {
@@ -1359,9 +1361,23 @@ class MultiplayerShooterGame {
     
     // 渲染障礙物
     renderObstacles() {
-        this.ctx.fillStyle = '#34495e';
         this.obstacles.forEach(obstacle => {
+            this.ctx.save();
+            
+            // 障礙物主體
+            this.ctx.fillStyle = '#34495e';
             this.ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+            
+            // 障礙物邊框
+            this.ctx.strokeStyle = '#2c3e50';
+            this.ctx.lineWidth = 2;
+            this.ctx.strokeRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+            
+            // 障礙物高光
+            this.ctx.fillStyle = '#5d6d7e';
+            this.ctx.fillRect(obstacle.x + 2, obstacle.y + 2, obstacle.width - 4, 4);
+            
+            this.ctx.restore();
         });
     }
     
@@ -1380,35 +1396,113 @@ class MultiplayerShooterGame {
     
     // 渲染單個玩家
     renderPlayer(player, isCurrentPlayer = false) {
+        if (!player || typeof player.x === 'undefined' || typeof player.y === 'undefined') return;
+        
         this.ctx.save();
         
-        // 玩家顏色
-        this.ctx.fillStyle = isCurrentPlayer ? '#3498db' : (player.color || '#e74c3c');
+        const centerX = player.x + 15;
+        const centerY = player.y + 15;
+        const angle = player.angle || 0;
         
-        // 繪製玩家
-        this.ctx.fillRect(player.x, player.y, 30, 30);
+        // 根據隊伍設定顏色
+        let playerColor = '#e74c3c'; // 默認紅色
+        if (player.team) {
+            const teamColors = {
+                red: '#e74c3c',
+                blue: '#3498db', 
+                green: '#2ecc71',
+                yellow: '#f1c40f'
+            };
+            playerColor = teamColors[player.team] || playerColor;
+        }
+        
+        if (isCurrentPlayer) {
+            playerColor = '#9b59b6'; // 紫色表示自己
+        }
+        
+        // 繪製玩家身體（圓形）
+        this.ctx.fillStyle = playerColor;
+        this.ctx.beginPath();
+        this.ctx.arc(centerX, centerY, 15, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // 繪製玩家邊框
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.lineWidth = 2;
+        this.ctx.stroke();
+        
+        // 繪製槍管
+        this.ctx.strokeStyle = '#34495e';
+        this.ctx.lineWidth = 4;
+        this.ctx.beginPath();
+        this.ctx.moveTo(centerX, centerY);
+        this.ctx.lineTo(
+            centerX + Math.cos(angle) * 25,
+            centerY + Math.sin(angle) * 25
+        );
+        this.ctx.stroke();
+        
+        // 繪製槍口
+        this.ctx.fillStyle = '#2c3e50';
+        this.ctx.beginPath();
+        this.ctx.arc(
+            centerX + Math.cos(angle) * 25,
+            centerY + Math.sin(angle) * 25,
+            3, 0, Math.PI * 2
+        );
+        this.ctx.fill();
         
         // 繪製玩家名稱
         this.ctx.fillStyle = '#ffffff';
-        this.ctx.font = '12px Arial';
+        this.ctx.font = 'bold 12px Arial';
         this.ctx.textAlign = 'center';
-        this.ctx.fillText(player.name, player.x + 15, player.y - 5);
+        this.ctx.strokeStyle = '#000000';
+        this.ctx.lineWidth = 3;
+        this.ctx.strokeText(player.name, centerX, player.y - 8);
+        this.ctx.fillText(player.name, centerX, player.y - 8);
         
         // 繪製生命值條
-        const healthWidth = 30 * (player.health / 100);
+        const healthWidth = 30 * ((player.health || 100) / 100);
         this.ctx.fillStyle = '#e74c3c';
-        this.ctx.fillRect(player.x, player.y - 10, 30, 4);
+        this.ctx.fillRect(player.x, player.y - 20, 30, 4);
         this.ctx.fillStyle = '#2ecc71';
-        this.ctx.fillRect(player.x, player.y - 10, healthWidth, 4);
+        this.ctx.fillRect(player.x, player.y - 20, healthWidth, 4);
+        
+        // 如果是 AI，顯示 AI 標記
+        if (player.isAI) {
+            this.ctx.fillStyle = '#9c88ff';
+            this.ctx.font = 'bold 10px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('🤖', centerX, centerY + 5);
+        }
         
         this.ctx.restore();
     }
     
     // 渲染子彈
     renderBullets() {
-        this.ctx.fillStyle = '#f39c12';
         this.serverBullets.forEach(bullet => {
-            this.ctx.fillRect(bullet.x - 2, bullet.y - 2, 4, 4);
+            this.ctx.save();
+            
+            // 子彈發光效果
+            this.ctx.shadowColor = '#f39c12';
+            this.ctx.shadowBlur = 10;
+            
+            // 繪製子彈
+            this.ctx.fillStyle = '#f39c12';
+            this.ctx.beginPath();
+            this.ctx.arc(bullet.x, bullet.y, 3, 0, Math.PI * 2);
+            this.ctx.fill();
+            
+            // 子彈軌跡
+            this.ctx.strokeStyle = '#e67e22';
+            this.ctx.lineWidth = 2;
+            this.ctx.beginPath();
+            this.ctx.moveTo(bullet.x - bullet.vx * 2, bullet.y - bullet.vy * 2);
+            this.ctx.lineTo(bullet.x, bullet.y);
+            this.ctx.stroke();
+            
+            this.ctx.restore();
         });
     }
     
